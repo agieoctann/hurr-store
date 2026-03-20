@@ -1,14 +1,8 @@
 import bcrypt from 'bcrypt';
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
 
-const connectionString = process.env.DATABASE_URL!;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { Pool } = require('pg');
-const adapter = new PrismaPg(new Pool({ connectionString, ssl: { rejectUnauthorized: false } }));
-const prisma = new PrismaClient({ adapter });
-
+const prisma = new PrismaClient();
 
 
 
