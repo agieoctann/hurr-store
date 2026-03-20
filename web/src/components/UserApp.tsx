@@ -331,7 +331,73 @@ function UserCheckout({ token, cart, onUpdateQty, onRemoveItem, onClearCart, onS
   );
 }
 
-// ── USER PROFILE ───────────────────────────────────────────────────────────────
+// ── ORDER HISTORY (persists across refresh) ──────────────────────────────────
+function UserOrderHistory({ token, userId }: { token: string; userId: string }) {
+  const [orders, setOrders] = useState<{id:string;paymentStatus:string;paymentMethod:string;finalTotalAmount:number;createdAt:string;orderItems:{qty:number;priceAtBuy:number;product:{name:string}}[]}[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${API}/orders/my`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setOrders(Array.isArray(d) ? d : []))
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  }, [token, userId]);
+
+  const statusBadge = (s: string) => {
+    const map: Record<string,string> = { PENDING:'badge-gray', COMPLETED:'badge-green', FAILED:'badge-danger', CANCELLED:'badge-danger' };
+    const label: Record<string,string> = { PENDING:'⏳ Pending', COMPLETED:'✅ Selesai', FAILED:'❌ Gagal', CANCELLED:'❌ Dibatal' };
+    return <span className={`badge ${map[s]||'badge-gray'}`}>{label[s]||s}</span>;
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">Riwayat Pesanan</h1>
+        <p className="page-subtitle">Semua pesanan kamu tersimpan di sini</p>
+      </div>
+      {loading ? (
+        <div className="empty-state"><span className="spinner"/><p>Memuat riwayat...</p></div>
+      ) : orders.length === 0 ? (
+        <div className="empty-state" style={{ marginTop:60 }}>
+          <Package size={48} color="var(--text-muted)"/>
+          <p>Belum ada pesanan.<br/>Yuk belanja!</p>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {orders.map(o => (
+            <div key={o.id} className="glass-card" style={{ padding:'16px 18px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:8, marginBottom:10 }}>
+                <div>
+                  <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:3 }}>#{o.id.slice(0,8).toUpperCase()}</div>
+                  <div style={{ fontSize:11, color:'var(--text-muted)' }}>{new Date(o.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}</div>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  {statusBadge(o.paymentStatus)}
+                  <div style={{ fontSize:13, fontWeight:700, color:'var(--purple-600)', marginTop:4 }}>{fmt(o.finalTotalAmount)}</div>
+                </div>
+              </div>
+              <div style={{ borderTop:'1px solid rgba(99,102,241,0.08)', paddingTop:8 }}>
+                {o.orderItems.map((it,i) => (
+                  <div key={i} style={{ fontSize:12, color:'var(--text-secondary)', display:'flex', justifyContent:'space-between' }}>
+                    <span>{it.product.name} ×{it.qty}</span>
+                    <span>{fmt(it.priceAtBuy * it.qty)}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>
+                Metode: <strong>{o.paymentMethod === 'QRIS' ? '📱 QRIS' : '🏦 Transfer Bank'}</strong>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function UserProfile({ user, token, onProfileUpdate }: {
   user: AuthUser; token: string;
   onProfileUpdate?: (name: string, phone: string) => void;
@@ -468,9 +534,10 @@ export default function UserApp({ token, user, onLogout }: { token: string; user
   const totalItems = cart.reduce((s,c) => s+c.qty, 0);
 
   const nav = [
-    { id:'catalog' as UserView,  icon:<ShoppingBag size={17}/>, label:'Katalog' },
-    { id:'orders'  as UserView,  icon:<ShoppingCart size={17}/>,label:'Keranjang', badge:totalItems },
-    { id:'profile' as UserView,  icon:<User size={17}/>,        label:'Profil' },
+    { id:'catalog'  as UserView, icon:<ShoppingBag size={17}/>, label:'Katalog' },
+    { id:'orders'   as UserView, icon:<ShoppingCart size={17}/>,label:'Keranjang', badge:totalItems },
+    { id:'history'  as UserView, icon:<Package size={17}/>,      label:'Riwayat' },
+    { id:'profile'  as UserView, icon:<User size={17}/>,         label:'Profil' },
   ];
 
   return (
@@ -527,14 +594,15 @@ export default function UserApp({ token, user, onLogout }: { token: string; user
         </div>
 
         <div className="app-content">
-          {view==='catalog' && <UserCatalog token={token} cart={cart} onAddToCart={addToCart}/>}
-          {view==='orders'  && (
+          {view==='catalog'  && <UserCatalog token={token} cart={cart} onAddToCart={addToCart}/>}
+          {view==='orders'   && (
             <UserCheckout token={token} cart={cart}
               onUpdateQty={updateQty} onRemoveItem={removeItem}
               onClearCart={() => setCart([])}
-              onSuccess={() => setView('orders')}/>
+              onSuccess={() => setView('history')}/>
           )}
-          {view==='profile' && <UserProfile user={user} token={token}/>}
+          {view==='history'  && <UserOrderHistory token={token} userId={user.id}/>}
+          {view==='profile'  && <UserProfile user={user} token={token}/>}
         </div>
       </div>
 

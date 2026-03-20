@@ -97,7 +97,10 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { status } = req.body;
 
-    const order = await prisma.order.findUnique({ where: { id } });
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { orderItems: true },
+    });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
     const updatedOrder = await prisma.order.update({
@@ -118,11 +121,28 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
       });
     }
 
+    // Jika FAILED/CANCELLED, hapus ledger entry terkait dan kembalikan stok
+    if (status === 'FAILED' || status === 'CANCELLED') {
+      // Hapus ledger yang terkait order ini (kalau ada)
+      await prisma.financialLedger.deleteMany({
+        where: { referenceId: order.id },
+      });
+
+      // Kembalikan stok produk
+      for (const item of order.orderItems) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.qty } },
+        });
+      }
+    }
+
     res.json(updatedOrder);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update payment status' });
   }
 };
+
 
 export const getOrders = async (req: Request, res: Response) => {
   try {
@@ -135,3 +155,20 @@ export const getOrders = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch orders' });
   }
 };
+
+export const getMyOrders = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { user?: { id: string } }).user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      include: { orderItems: { include: { product: { select: { name: true } } } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch your orders' });
+  }
+};
+

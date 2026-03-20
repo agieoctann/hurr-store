@@ -4,7 +4,8 @@ export const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL as string) || 'https:
 
 
 export type AdminView = 'dashboard' | 'products' | 'orders' | 'finance' | 'users' | 'chat';
-export type UserView = 'catalog' | 'orders' | 'profile' | 'chat';
+export type UserView = 'catalog' | 'orders' | 'history' | 'profile' | 'chat';
+
 
 export interface AuthUser { id: string; email: string; role: string; name?: string; phone?: string; }
 

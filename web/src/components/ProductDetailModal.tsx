@@ -71,7 +71,7 @@ export default function ProductDetailModal({ product, onClose, cart, onAddToCart
           <button className="modal-close" onClick={onClose}><X size={18}/></button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,220px) 1fr', gap: 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
           {/* Image panel — zoom only on desktop */}
           <div
             ref={imgRef}
@@ -79,7 +79,9 @@ export default function ProductDetailModal({ product, onClose, cart, onAddToCart
             onMouseLeave={() => setImgZoom(false)}
             onMouseMove={handleMouseMove}
             style={{
-              height: 280, overflow: 'hidden',
+              flex: '0 0 clamp(160px, 35%, 260px)',
+              minHeight: 260,
+              overflow: 'hidden',
               cursor: isTouch ? 'default' : 'crosshair',
               background: 'linear-gradient(135deg,rgba(99,102,241,0.06),rgba(6,182,212,0.04))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -115,7 +117,8 @@ export default function ProductDetailModal({ product, onClose, cart, onAddToCart
           </div>
 
           {/* Info panel */}
-          <div style={{ padding:20, overflow:'auto' }}>
+          <div style={{ flex: '1 1 260px', padding: '18px 20px', overflow: 'auto' }}>
+
             <div style={{ display:'flex', gap:6, marginBottom:8, flexWrap:'wrap' }}>
               {product.category && <span className="badge badge-purple">{product.category}</span>}
               {product.brand   && <span className="badge badge-gray">{product.brand}</span>}

@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Mail, Lock, ShoppingBag, Chrome, Facebook, Server } from 'lucide-react';
+import { Mail, Lock, ShoppingBag, Chrome, Facebook, Circle } from 'lucide-react';
 import { API } from '../types';
 import type { AuthUser } from '../types';
 
@@ -15,7 +15,9 @@ export default function AuthPage({ onAuth }: Props) {
   const [dbOk, setDbOk] = useState<boolean | null>(null);
 
   useEffect(() => {
-    fetch('http://localhost:5000/health')
+    const base = (import.meta.env.VITE_API_URL as string) || 'https://hurr-store-production.up.railway.app/api';
+    const healthUrl = base.replace('/api', '/health');
+    fetch(healthUrl)
       .then(r => r.json()).then(d => setDbOk(d.status === 'ok')).catch(() => setDbOk(false));
   }, []);
 
@@ -122,14 +124,16 @@ export default function AuthPage({ onAuth }: Props) {
           </button>
         </div>
 
-        {/* DB status */}
-        <div style={{ textAlign: 'center', marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          <span className={`badge ${dbOk === null ? 'badge-gray' : dbOk ? 'badge-green' : 'badge-danger'}`}
-            style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Server size={11} />
-            {dbOk === null ? 'Mengecek server...' : dbOk ? 'Server Online' : 'Server Offline'}
-          </span>
-        </div>
+        {/* Server status - only show when offline */}
+        {dbOk === false && (
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <span className="badge badge-danger"
+              style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Circle size={8} fill="currentColor" />
+              Koneksi server bermasalah
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
