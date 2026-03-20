@@ -4,12 +4,14 @@ import dotenv from 'dotenv';
 import http from 'http';
 import { Server } from 'socket.io';
 import prisma from './lib/prisma';
+import { setIO } from './lib/socket';
 
 import productRoutes from './routes/product.routes';
 import orderRoutes from './routes/order.routes';
 import financeRoutes from './routes/finance.routes';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/users.routes';
+import paymentRoutes from './routes/payment.routes';
 
 dotenv.config();
 
@@ -21,6 +23,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   }
 });
+setIO(io); // Share io instance with controllers
 
 const allowedOrigins = [
   'http://localhost:5173',
@@ -52,6 +55,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/health', async (req: Request, res: Response) => {
   try {

@@ -1,12 +1,13 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import path from 'path';
+import dotenv from 'dotenv';
 
-const prisma = global.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
-});
+dotenv.config();
 
-// Prevent hot-reload creating multiple connections in development
-if (process.env.NODE_ENV !== 'production') {
-  (global as typeof globalThis & { prisma?: PrismaClient }).prisma = prisma;
-}
+const dbPath = path.resolve(__dirname, '../../dev.db');
+const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
+
+const prisma = new PrismaClient({ adapter });
 
 export default prisma;

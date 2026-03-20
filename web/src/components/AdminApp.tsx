@@ -3,13 +3,15 @@ import * as XLSX from 'xlsx';
 import {
   LayoutDashboard, Package, ShoppingCart, Wallet, Users, MessageCircle,
   Plus, Search, Edit2, Trash2, CheckCircle, XCircle, Menu, LogOut,
-  TrendingUp, AlertTriangle, RefreshCw, FileSpreadsheet, Send
+  TrendingUp, AlertTriangle, RefreshCw, FileSpreadsheet, Send, Bell
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { io as socketIO } from 'socket.io-client';
 import { API, SOCKET_URL, fmt, fmtDate, statusClass, statusLabel } from '../types';
 import type { AdminView, AuthUser, Product, Order, FinanceReport, LedgerEntry, AppUser } from '../types';
 import { ProductModal, LedgerModal, UserEditModal } from './AdminModals';
 // LiveChat FAB removed from Admin — Admin uses full AdminChatPanel page instead
+
 
 const CHART_DATA = [
   { day: 'Sen', sales: 1200000 }, { day: 'Sel', sales: 1800000 },
@@ -24,13 +26,28 @@ function AdminDashboard({ token, user }: { token: string; user: AuthUser }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [finance, setFinance] = useState<FinanceReport | null>(null);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [newOrderNotif, setNewOrderNotif] = useState<{ id: string; method: string } | null>(null);
 
   useEffect(() => {
     const h = { Authorization: `Bearer ${token}` };
+    const loadOrders = () =>
+      fetch(`${API}/orders`, { headers: h }).then(r => r.json()).then(d => setOrders(Array.isArray(d) ? d : [])).catch(() => {});
+
     fetch(`${API}/products`, { headers: h }).then(r => r.json()).then(d => setProducts(Array.isArray(d) ? d : [])).catch(() => {});
-    fetch(`${API}/orders`,   { headers: h }).then(r => r.json()).then(d => setOrders(Array.isArray(d) ? d : [])).catch(() => {});
+    loadOrders();
     fetch(`${API}/finance/reports`, { headers: h }).then(r => r.json()).then(setFinance).catch(() => {});
     fetch(`${API}/users`,    { headers: h }).then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+
+    // Socket: listen pesanan baru masuk dari user
+    const socket = socketIO(SOCKET_URL, { transports: ['websocket', 'polling'] });
+    socket.emit('join_admin');
+    socket.on('new_order', (data: { orderId: string; paymentMethod: string }) => {
+      setNewOrderNotif({ id: data.orderId, method: data.paymentMethod });
+      loadOrders(); // Refresh order list
+      setTimeout(() => setNewOrderNotif(null), 6000);
+    });
+
+    return () => { socket.disconnect(); };
   }, [token]);
 
   const lowStock = products.filter(p => Number(p.stock) <= Number(p.minStock));
@@ -46,10 +63,32 @@ function AdminDashboard({ token, user }: { token: string; user: AuthUser }) {
 
   return (
     <div>
+      {/* Toast notifikasi pesanan baru */}
+      {newOrderNotif && (
+        <div style={{
+          position: 'fixed', top: 20, right: 20, zIndex: 9999,
+          background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+          color: 'white', borderRadius: 14, padding: '14px 20px',
+          boxShadow: '0 8px 30px rgba(99,102,241,0.4)',
+          display: 'flex', alignItems: 'center', gap: 12,
+          animation: 'slideIn 0.3s ease',
+          maxWidth: 320,
+        }}>
+          <Bell size={22} style={{ flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>🛒 Pesanan Baru Masuk!</div>
+            <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>
+              Metode: {newOrderNotif.method === 'QRIS' ? '📱 QRIS' : '🏦 Transfer Bank'} · ID: {newOrderNotif.id.slice(0,8)}…
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="page-header">
         <h1 className="page-title">Dashboard</h1>
         <p className="page-subtitle">Selamat datang, <strong>{user.email}</strong> · {new Date().toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
       </div>
+
 
       <div className="kpi-grid">
         {kpis.map(k => (
@@ -319,22 +358,41 @@ function AdminOrders({ token }: { token: string }) {
                     <tr key={o.id}>
                       <td><code style={{ fontSize:11 }}>{o.id.slice(0,8)}…</code></td>
                       <td className="col-right" style={{ fontWeight:700 }}>{fmt(o.finalTotalAmount)}</td>
-                      <td><span className="badge badge-purple">{o.paymentMethod}</span></td>
+                      <td>
+                        <span className={`badge ${o.paymentMethod==='QRIS'?'badge-purple':'badge-teal'}`}>
+                          {o.paymentMethod==='QRIS' ? '📱 QRIS' : '🏦 Transfer Bank'}
+                        </span>
+                      </td>
                       <td className="col-center"><span className={`badge ${statusClass(o.paymentStatus)}`}>{statusLabel(o.paymentStatus)}</span></td>
                       <td style={{ fontSize:12 }}>{fmtDate(o.createdAt)}</td>
                       <td className="col-center">
                         {o.paymentStatus==='PENDING' && (
-                          <div style={{ display:'flex', gap:5, justifyContent:'center' }}>
-                            <button className="btn-sm btn-success-sm" disabled={updating===o.id} onClick={() => updateStatus(o.id,'COMPLETED')} title="Konfirmasi Lunas">
-                              <CheckCircle size={13}/>
+                          <div style={{ display:'flex', gap:5, justifyContent:'center', flexDirection:'column', alignItems:'center' }}>
+                            <button
+                              className="btn-sm btn-success-sm"
+                              disabled={updating===o.id}
+                              onClick={() => updateStatus(o.id,'COMPLETED')}
+                              style={{ fontSize:11, whiteSpace:'nowrap', padding:'4px 8px' }}
+                              title="Konfirmasi Pembayaran Lunas"
+                            >
+                              ✅ {o.paymentMethod==='BANK_TRANSFER' ? 'Konfirmasi Transfer' : 'Konfirmasi Lunas'}
                             </button>
-                            <button className="btn-sm btn-danger-sm" disabled={updating===o.id} onClick={() => updateStatus(o.id,'FAILED')} title="Tandai Gagal">
-                              <XCircle size={13}/>
+                            <button
+                              className="btn-sm btn-danger-sm"
+                              disabled={updating===o.id}
+                              onClick={() => updateStatus(o.id,'FAILED')}
+                              style={{ fontSize:11, padding:'4px 8px' }}
+                              title="Tandai Pembayaran Gagal"
+                            >
+                              ❌ Gagal
                             </button>
                           </div>
                         )}
+                        {o.paymentStatus==='COMPLETED' && <span style={{ fontSize:12, color:'#059669' }}>✅ Lunas</span>}
+                        {o.paymentStatus==='FAILED' && <span style={{ fontSize:12, color:'#dc2626' }}>❌ Gagal</span>}
                       </td>
                     </tr>
+
                   ))}
                 </tbody>
               </table>

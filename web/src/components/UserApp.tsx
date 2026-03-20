@@ -147,20 +147,67 @@ function UserCheckout({ token, cart, onUpdateQty, onRemoveItem, onClearCart, onS
   const total = cart.reduce((s, c) => s+Number(c.product.sellingPrice)*c.qty, 0);
 
   const handleCheckout = async () => {
-    if (cart.length===0) return;
+    if (cart.length === 0) return;
     setLoading(true); setError('');
     try {
-      const res = await fetch(`${API}/orders`, {
-        method:'POST',
-        headers: { Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
-        body: JSON.stringify({ paymentMethod, items: cart.map(c=>({ productId:c.product.id, qty:c.qty })) }),
+      // Step 1: Buat order ke backend
+      const orderRes = await fetch(`${API}/orders`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod, items: cart.map(c => ({ productId: c.product.id, qty: c.qty })) }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error||'Checkout gagal');
-      setPhase('success');
-    } catch (err: unknown) { setError(err instanceof Error?err.message:'Gagal'); }
-    finally { setLoading(false); }
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderData.error || 'Gagal membuat pesanan');
+
+      // Step 2: Ambil Snap token dari Midtrans
+      const snapRes = await fetch(`${API}/payments/snap-token`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: orderData.id }),
+      });
+      const snapData = await snapRes.json();
+      if (!snapRes.ok) throw new Error(snapData.error || 'Gagal menghubungi payment gateway');
+
+      // Helper: batalkan order ke backend
+      const cancelOrder = async () => {
+        try {
+          await fetch(`${API}/orders/${orderData.id}/status`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'FAILED' }),
+          });
+        } catch { /* Ignore cancel error */ }
+      };
+
+      // Step 3: Buka popup Midtrans Snap
+      setLoading(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).snap.pay(snapData.token, {
+        onSuccess: () => {
+          setPhase('success');
+          onClearCart();
+        },
+        onPending: () => {
+          // VA masih aktif — biarkan PENDING, admin/webhook konfirmasi nanti
+          setPhase('success');
+          onClearCart();
+        },
+        onError: async () => {
+          await cancelOrder();
+          setError('❌ Pembayaran gagal. Silakan coba lagi.');
+        },
+        onClose: async () => {
+          // User menutup popup tanpa bayar — batalkan order
+          await cancelOrder();
+          setError('⚠️ Pembayaran dibatalkan. Pesanan telah dihapus.');
+        },
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan');
+      setLoading(false);
+    }
   };
+
 
   if (phase==='success') return (
     <div className="glass-card section-card" style={{ maxWidth:480, margin:'40px auto', textAlign:'center' }}>
@@ -264,14 +311,13 @@ function UserCheckout({ token, cart, onUpdateQty, onRemoveItem, onClearCart, onS
 
           {paymentMethod==='BANK_TRANSFER' && (
             <div style={{ marginTop:14, background:'rgba(99,102,241,0.06)', borderRadius:12, padding:16 }}>
-              <div style={{ fontWeight:700, marginBottom:10, fontSize:13 }}>Informasi Transfer</div>
-              {[{bank:'BCA', no:'1234 5678 90'},{bank:'Mandiri', no:'0987 6543 21'}].map(b => (
-                <div key={b.bank} style={{ background:'white', borderRadius:8, padding:'8px 12px', marginBottom:6 }}>
-                  <div style={{ fontWeight:700, fontSize:13 }}>🏦 {b.bank}</div>
-                  <div style={{ fontSize:12 }}>{b.no} · a.n. Hurr Store</div>
-                </div>
-              ))}
-              <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6 }}>Nominal: <strong style={{ color:'var(--purple-600)' }}>{fmt(total)}</strong></div>
+              <div style={{ fontWeight:700, marginBottom:6, fontSize:13 }}>💳 Transfer Bank / Virtual Account</div>
+              <div style={{ fontSize:12, color:'var(--text-secondary)', lineHeight:1.6 }}>
+                Setelah klik <strong>Konfirmasi Pesanan</strong>, sistem akan menampilkan nomor
+                Virtual Account (VA) dari bank pilihan Anda (BCA, Mandiri, BRI, dll.).
+                Pembayaran akan <strong>otomatis terkonfirmasi</strong> setelah transfer berhasil.
+              </div>
+              <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:8 }}>Total: <strong style={{ color:'var(--purple-600)' }}>{fmt(total)}</strong></div>
             </div>
           )}
 
@@ -286,9 +332,12 @@ function UserCheckout({ token, cart, onUpdateQty, onRemoveItem, onClearCart, onS
 }
 
 // ── USER PROFILE ───────────────────────────────────────────────────────────────
-function UserProfile({ user, token }: { user: AuthUser; token: string }) {
+function UserProfile({ user, token, onProfileUpdate }: {
+  user: AuthUser; token: string;
+  onProfileUpdate?: (name: string, phone: string) => void;
+}) {
   const [name, setName] = useState(user.name || user.email.split('@')[0]);
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(user.phone || '');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [addresses, setAddresses] = useState([
@@ -296,6 +345,19 @@ function UserProfile({ user, token }: { user: AuthUser; token: string }) {
   ]);
   const [showAdd, setShowAdd] = useState(false);
   const [newAddr, setNewAddr] = useState({ label:'', detail:'' });
+
+  // Fetch data user terbaru dari backend saat mount
+  useEffect(() => {
+    fetch(`${API}/users/${user.id}/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) {
+          setName(d.name || user.email.split('@')[0]);
+          setPhone(d.phone || '');
+        }
+      }).catch(() => {});
+  }, [user.id, user.email, token]);
 
   const saveProfile = async () => {
     setSaving(true); setSaveMsg('');
@@ -307,6 +369,7 @@ function UserProfile({ user, token }: { user: AuthUser; token: string }) {
       });
       if (!res.ok) throw new Error('Gagal menyimpan');
       setSaveMsg('✅ Profil berhasil disimpan!');
+      onProfileUpdate?.(name, phone);
       setTimeout(() => setSaveMsg(''), 3000);
     } catch { setSaveMsg('❌ Gagal menyimpan. Coba lagi.'); }
     finally { setSaving(false); }

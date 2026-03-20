@@ -4,11 +4,12 @@ import {
   updatePaymentStatus,
   getOrders,
 } from '../controllers/order.controller';
+import { authMiddleware, adminOnly } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', getOrders);
-router.post('/', createOrder);
-router.put('/:id/status', updatePaymentStatus); // Admin / Webhook only
+router.get('/',            authMiddleware, getOrders);
+router.post('/',           authMiddleware, createOrder);
+router.put('/:id/status',  authMiddleware, adminOnly, updatePaymentStatus);
 
 export default router;
