@@ -1,5 +1,6 @@
-export const API = (import.meta.env.VITE_API_URL as string) || 'http://localhost:5000/api';
-export const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL as string) || 'http://localhost:5000';
+export const API = (import.meta.env.VITE_API_URL as string) || 'https://hurr-store-production.up.railway.app/api';
+export const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL as string) || 'https://hurr-store-production.up.railway.app';
+
 
 
 export type AdminView = 'dashboard' | 'products' | 'orders' | 'finance' | 'users' | 'chat';
