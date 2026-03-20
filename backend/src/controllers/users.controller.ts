@@ -16,7 +16,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { role } = req.body;
     const user = await prisma.user.update({
       where: { id },
@@ -30,26 +30,23 @@ export const updateUser = async (req: Request, res: Response) => {
 };
 
 export const deleteUser = async (req: Request, res: Response) => {
+  const id = req.params.id as string;
   try {
-    const { id } = req.params;
-    // Cascade: delete orders (and their items) and addresses manually
-    // (Prisma onDelete: Cascade handles this via schema, but let's be explicit)
     await prisma.user.delete({ where: { id } });
     res.json({ message: 'User deleted successfully' });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    // SQLite FK constraint - try manual cascade
+    // PostgreSQL cascade: try manual cascade
     try {
-      const { id } = req.params;
       const orders = await prisma.order.findMany({ where: { userId: id }, select: { id: true } });
       for (const o of orders) {
-        await prisma.orderItem.deleteMany({ where: { orderId: o.id } });
+        await prisma.orderItem.deleteMany({ where: { orderId: o.id as string } });
       }
       await prisma.order.deleteMany({ where: { userId: id } });
       await prisma.address.deleteMany({ where: { userId: id } });
       await prisma.user.delete({ where: { id } });
       res.json({ message: 'User deleted successfully' });
-    } catch (err2: unknown) {
+    } catch {
       res.status(500).json({ error: 'Failed to delete user', details: msg });
     }
   }
@@ -57,7 +54,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 
 export const getProfile = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const user = await prisma.user.findUnique({
       where: { id },
       select: { id: true, email: true, name: true, phone: true, role: true },
@@ -71,7 +68,7 @@ export const getProfile = async (req: Request, res: Response) => {
 
 export const updateProfile = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, phone, password } = req.body;
 
     const data: Record<string, unknown> = {};
