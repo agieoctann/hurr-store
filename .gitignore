@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment variables - JANGAN commit ini!
+.env
+.env.local
+
+# Build output
+dist/
+build/
+
+# Database files (SQLite)
+*.db
+*.db-journal
+dev.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

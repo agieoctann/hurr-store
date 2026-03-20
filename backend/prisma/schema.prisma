@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  name         String?
+  phone        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  orders    Order[]
+  addresses Address[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullAddress String
+  isDefault   Boolean  @default(false)
+  orders      Order[]  @relation("ShippingAddress")
+}
+
+model Product {
+  id           String      @id @default(uuid())
+  name         String
+  description  String?
+  category     String?
+  imageUrl     String?
+  brand        String?
+  material     String?
+  color        String?
+  weight       String?
+  sizes        String?     // JSON string: ["S","M","L"]
+  stockPerSize String?     // JSON string: {"S":10,"M":20}
+  discount     Int         @default(0)
+  costPrice    Decimal
+  sellingPrice Decimal
+  stock        Int
+  minStock     Int         @default(10)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  orderItems   OrderItem[]
+}
+
+model Order {
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shippingAddressId String?
+  shippingAddress   Address?      @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  finalTotalAmount  Decimal
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus @default(PENDING)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  orderItems        OrderItem[]
+}
+
+enum PaymentMethod {
+  QRIS
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  qty        Int
+  priceAtBuy Decimal
+  costAtBuy  Decimal
+}
+
+model FinancialLedger {
+  id              String         @id @default(uuid())
+  transactionDate DateTime       @default(now())
+  type            LedgerType
+  category        LedgerCategory
+  amount          Decimal
+  referenceId     String?
+  description     String?
+}
+
+enum LedgerType {
+  INCOME
+  EXPENSE
+}
+
+enum LedgerCategory {
+  SALES_REVENUE
+  RESTOCK_COST
+  OPERATIONAL_EXPENSE
+  REFUND
+}
