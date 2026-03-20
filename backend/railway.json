@@ -5,8 +5,7 @@
     "buildCommand": "npm install && npx prisma generate && npm run build"
   },
   "deploy": {
-    "startCommand": "npx prisma migrate deploy && npm start",
-    "healthcheckPath": "/health",
+    "startCommand": "npm start",
     "restartPolicyType": "ON_FAILURE"
   }
 }
