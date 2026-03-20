@@ -112,7 +112,7 @@ function AdminDashboard({ token, user }: { token: string; user: AuthUser }) {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,102,241,0.1)" />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => (v/1000000).toFixed(1)+'jt'} />
-                <Tooltip formatter={(v:number) => fmt(v)} contentStyle={{ borderRadius: 10, border: '1px solid rgba(99,102,241,0.2)', fontSize: 12 }} />
+                <Tooltip formatter={(v) => fmt(v as number)} contentStyle={{ borderRadius: 10, border: '1px solid rgba(99,102,241,0.2)', fontSize: 12 }} />
                 <Line type="monotone" dataKey="sales" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
@@ -502,7 +502,7 @@ function AdminFinance({ token }: { token: string }) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,102,241,0.1)" />
               <XAxis dataKey="day" tick={{ fontSize:11, fill:'#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize:10, fill:'#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v=>(v/1000000).toFixed(1)+'jt'} />
-              <Tooltip formatter={(v:number)=>fmt(v)} contentStyle={{ borderRadius:10, border:'1px solid rgba(99,102,241,0.2)', fontSize:12 }} />
+              <Tooltip formatter={(v) => fmt(v as number)} contentStyle={{ borderRadius:10, border:'1px solid rgba(99,102,241,0.2)', fontSize:12 }} />
               <Bar dataKey="sales" fill="#6366f1" radius={[6,6,0,0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -521,7 +521,7 @@ function AdminFinance({ token }: { token: string }) {
           </div>
         </div>
         {loading ? <div className="empty-state"><RefreshCw size={28}/><p>Memuat...</p></div>
-          : filtered.length===0 ? <div className="empty-state"><BookOpen size={36} color="var(--text-muted)"/><p>Belum ada entri</p></div>
+          : filtered.length===0 ? <div className="empty-state"><span style={{ color:'var(--text-muted)' }}><BookOpen size={36}/></span><p>Belum ada entri</p></div>
           : <div style={{ overflowX:'auto' }}>
               <table className="data-table">
                 <thead><tr><th>Tanggal</th><th>Tipe</th><th>Kategori</th><th className="col-right">Nominal</th><th>Keterangan</th></tr></thead>
@@ -662,7 +662,7 @@ function AdminChatPanel({ adminId }: { adminId: string }) {
       }
     });
 
-    return () => socket.disconnect();
+    return () => { socket.disconnect(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminId]);
 
