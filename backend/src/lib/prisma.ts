@@ -1,13 +1,14 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import path from 'path';
-import dotenv from 'dotenv';
 
-dotenv.config();
+// Singleton pattern to prevent multiple connections in dev (hot-reload)
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-const dbPath = path.resolve(__dirname, '../../dev.db');
-const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
+const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['error'] : ['error'],
+});
 
-const prisma = new PrismaClient({ adapter });
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
 export default prisma;
