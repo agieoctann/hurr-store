@@ -3,6 +3,8 @@ import { Mail, Lock, ShoppingBag, Chrome, Facebook, Circle } from 'lucide-react'
 import { API } from '../types';
 import type { AuthUser } from '../types';
 
+const BACKEND_BASE = (import.meta.env.VITE_API_URL as string || 'http://localhost:3000/api').replace('/api', '');
+
 interface Props { onAuth: (token: string, user: AuthUser) => void; }
 
 export default function AuthPage({ onAuth }: Props) {
@@ -113,12 +115,12 @@ export default function AuthPage({ onAuth }: Props) {
         <div className="social-divider">atau lanjutkan dengan</div>
         <div className="social-btns">
           <button type="button" className="btn-social"
-            onClick={() => setError('Social login membutuhkan konfigurasi OAuth credentials.')}>
+            onClick={() => { window.location.href = `${BACKEND_BASE}/api/auth/google`; }}>
             <Chrome size={18} />
             Google
           </button>
           <button type="button" className="btn-social"
-            onClick={() => setError('Social login membutuhkan konfigurasi OAuth credentials.')}>
+            onClick={() => { window.location.href = `${BACKEND_BASE}/api/auth/facebook`; }}>
             <Facebook size={18} color="#1877F2" />
             Facebook
           </button>

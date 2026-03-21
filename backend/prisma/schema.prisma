@@ -10,10 +10,12 @@ datasource db {
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
-  passwordHash String
-  role         Role      @default(USER)
+  passwordHash String?   // nullable: OAuth users don't need a password
+  provider     String?   // 'google' | 'facebook' | null (for local auth)
+  providerId   String?   // OAuth provider's user ID
   name         String?
   phone        String?
+  role         Role      @default(USER)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

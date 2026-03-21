@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hurr Store</string>
+    <string name="title_activity_main">Hurr Store</string>
+    <string name="package_name">com.hurr.store</string>
+    <string name="custom_url_scheme">com.hurr.store</string>
+</resources>

@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, useEffect } from 'react';
 import './index.css';
 import type { AuthUser } from './types';
 
@@ -42,6 +42,38 @@ export default function App() {
       return null;
     }
   });
+
+  // ── Handle OAuth redirect callback ──────────────────────────────────────────
+  // Backend redirects to: /?auth_token=xxx&auth_user=xxx  (or ?auth_error=xxx)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authToken = params.get('auth_token');
+    const authUserRaw = params.get('auth_user');
+    const authError = params.get('auth_error');
+
+    if (authError) {
+      // Clear bad state; AuthPage will show error via its own state
+      console.error('OAuth error:', authError);
+      // Remove query string from URL
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    if (authToken && authUserRaw) {
+      try {
+        const authUser: AuthUser = JSON.parse(decodeURIComponent(authUserRaw));
+        localStorage.setItem('token', authToken);
+        localStorage.setItem('user', JSON.stringify(authUser));
+        setToken(authToken);
+        setUser(authUser);
+        // Clean URL so token doesn't stay in browser history
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (e) {
+        console.error('Failed to parse OAuth user data', e);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, []);
 
   const handleAuth = (t: string, u: AuthUser) => { setToken(t); setUser(u); };
   const handleLogout = () => {
